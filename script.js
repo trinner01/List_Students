@@ -26,7 +26,10 @@ function csvToArray(csv) {
             name: values[0],
             specialty: values[1],
             grade: parseFloat(values[2].replace(',', '.')),
-            exam: values[3]
+            exam: values[3],
+            priority: values[4],
+            funding: values[5],
+            form: values[6]
         };
     });
     return data;
@@ -34,21 +37,29 @@ function csvToArray(csv) {
 
 function sortDataBySpecialtyAndGrade(data) {
     const groupedData = data.reduce((acc, item) => {
-        if (item.exam === 'Да') {
+        if (item.exam === 'Да' && item.priority === '1') {
             if (!acc[item.specialty]) {
-                acc[item.specialty] = [];
+                acc[item.specialty] = {};
             }
-            acc[item.specialty].push(item);
+            if (!acc[item.specialty][item.funding]) {
+                acc[item.specialty][item.funding] = {};
+            }
+            if (!acc[item.specialty][item.funding][item.form]) {
+                acc[item.specialty][item.funding][item.form] = [];
+            }
+            acc[item.specialty][item.funding][item.form].push(item);
         }
         return acc;
     }, {});
 
-    const sortedSpecialties = Object.keys(groupedData).sort();
-    
-    sortedSpecialties.forEach(specialty => {
-        groupedData[specialty].sort((a, b) => b.grade - a.grade);
-        groupedData[specialty] = groupedData[specialty].slice(0, 25);
-    });
+    for (const specialty in groupedData) {
+        for (const funding in groupedData[specialty]) {
+            for (const form in groupedData[specialty][funding]) {
+                groupedData[specialty][funding][form].sort((a, b) => b.grade - a.grade);
+                groupedData[specialty][funding][form] = groupedData[specialty][funding][form].slice(0, 25);
+            }
+        }
+    }
 
     return groupedData;
 }
@@ -58,41 +69,62 @@ function displayTables(data) {
     outputDiv.innerHTML = '';
 
     for (const specialty in data) {
-        const table = document.createElement('table');
-        const thead = document.createElement('thead');
-        const tbody = document.createElement('tbody');
+        for (const funding in data[specialty]) {
+            for (const form in data[specialty][funding]) {
+                const table = document.createElement('table');
+                const thead = document.createElement('thead');
+                const tbody = document.createElement('tbody');
 
-        const headerRow = document.createElement('tr');
-        ['Name', 'Specialty', 'Grade', 'Exam'].forEach(text => {
-            const th = document.createElement('th');
-            th.textContent = text;
-            headerRow.appendChild(th);
-        });
-        thead.appendChild(headerRow);
+                const headerRow = document.createElement('tr');
+                ['ФИО', 'Специальность', 'Средний балл', 'Экзамен', 'Финансирование', 'Форма обучения'].forEach(text => {
+                    const th = document.createElement('th');
+                    th.textContent = text;
+                    headerRow.appendChild(th);
+                });
+                thead.appendChild(headerRow);
 
-        data[specialty].forEach(item => {
-            const row = document.createElement('tr');
-            const nameCell = document.createElement('td');
-            nameCell.textContent = item.name;
-            row.appendChild(nameCell);
+                data[specialty][funding][form].forEach(item => {
+                    const row = document.createElement('tr');
+                    const nameCell = document.createElement('td');
+                    nameCell.textContent = item.name;
+                    row.appendChild(nameCell);
 
-            const specialtyCell = document.createElement('td');
-            specialtyCell.textContent = item.specialty;
-            row.appendChild(specialtyCell);
+                    const specialtyCell = document.createElement('td');
+                    specialtyCell.textContent = item.specialty;
+                    row.appendChild(specialtyCell);
 
-            const gradeCell = document.createElement('td');
-            gradeCell.textContent = item.grade.toFixed(2);
-            row.appendChild(gradeCell);
+                    const gradeCell = document.createElement('td');
+                    gradeCell.textContent = item.grade.toFixed(2);
+                    row.appendChild(gradeCell);
 
-            const examCell = document.createElement('td');
-            examCell.textContent = item.exam;
-            row.appendChild(examCell);
+                    const examCell = document.createElement('td');
+                    examCell.textContent = item.exam;
+                    row.appendChild(examCell);
 
-            tbody.appendChild(row);
-        });
+                    const fundingCell = document.createElement('td');
+                    fundingCell.textContent = item.funding;
+                    row.appendChild(fundingCell);
 
-        table.appendChild(thead);
-        table.appendChild(tbody);
-        outputDiv.appendChild(table);
+                    const formCell = document.createElement('td');
+                    formCell.textContent = item.form;
+                    row.appendChild(formCell);
+
+                    tbody.appendChild(row);
+                });
+
+                table.appendChild(thead);
+                table.appendChild(tbody);
+                outputDiv.appendChild(table);
+
+                // Add student count and horizontal line
+                const countDiv = document.createElement('div');
+                countDiv.classList.add('student-count');
+                countDiv.textContent = `Количество студентов: ${data[specialty][funding][form].length}`;
+                outputDiv.appendChild(countDiv);
+
+                const hr = document.createElement('hr');
+                outputDiv.appendChild(hr);
+            }
+        }
     }
 }
