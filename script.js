@@ -70,37 +70,32 @@ function distributeStudentsByPriority(data) {
         '54.01.20 Графический дизайнер'
     ];
 
-    data.forEach(student => {
-        if (
-            validSpecialties.includes(student.specialty) &&
-            validForms.includes(student.form) &&
-            validFundings.includes(student.funding) &&
-            (student.exam === 'Да' || (specialtiesAllowingNoExam.includes(student.specialty) && student.exam === 'Нет'))
-        ) {
-            let added = false;
-            for (let priority = 1; priority <= maxPriority; priority++) {
-                if (student.priority === priority && !added) {
-                    const specialtyKey = `${student.specialty}-${student.funding}-${student.form}`;
+    // Отфильтровать студентов по критериям
+    const students = data.filter(student => 
+        validSpecialties.includes(student.specialty) &&
+        validForms.includes(student.form) &&
+        validFundings.includes(student.funding) &&
+        (student.exam === 'Да' || (specialtiesAllowingNoExam.includes(student.specialty) && student.exam === 'Нет'))
+    ).sort((a, b) => b.grade - a.grade); // Сортируем по убыванию оценки
 
-                    if (!specialtyTables[specialtyKey]) {
-                        specialtyTables[specialtyKey] = [];
-                    }
+    // Создаем таблицы для каждого приоритета
+    for (let priority = 1; priority <= maxPriority; priority++) {
+        for (const student of students) {
+            if (student.priority === priority && !addedStudents.has(student.name)) {
+                const specialtyKey = `${student.specialty}-${student.funding}-${student.form}`;
+                
+                if (!specialtyTables[specialtyKey]) {
+                    specialtyTables[specialtyKey] = [];
+                }
 
-                    // Проверяем, добавлен ли студент, если нет, добавляем его
-                    if (!addedStudents.has(student.name) && specialtyTables[specialtyKey].length < 50) {
-                        student.priorityNumber = priority;
-                        specialtyTables[specialtyKey].push(student);
-                        addedStudents.add(student.name);
-                        added = true;
-                    }
+                // Добавляем студента, если место еще есть в топ 50
+                if (specialtyTables[specialtyKey].length < 50) {
+                    student.priorityNumber = priority;
+                    specialtyTables[specialtyKey].push(student);
+                    addedStudents.add(student.name);
                 }
             }
         }
-    });
-
-    // Сортируем студентов по баллам в каждой специальности
-    for (const key in specialtyTables) {
-        specialtyTables[key].sort((a, b) => b.grade - a.grade);
     }
 
     return specialtyTables;
@@ -165,7 +160,7 @@ function displayTables(data) {
         table.appendChild(tbody);
         outputDiv.appendChild(table);
 
-        // Add student count and horizontal line
+        // Добавление количества студентов и горизонтальной линии
         const countDiv = document.createElement('div');
         countDiv.classList.add('student-count');
         countDiv.textContent = `Total students: ${data[key].length}`;
