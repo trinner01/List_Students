@@ -29,7 +29,8 @@ function csvToArray(csv) {
             exam: values[3],
             priority: values[4],
             funding: values[5],
-            form: values[6]
+            form: values[6],
+            provided: values[7] // Added new column
         };
     });
     return data;
@@ -56,7 +57,7 @@ function sortDataBySpecialtyAndGrade(data) {
         for (const funding in groupedData[specialty]) {
             for (const form in groupedData[specialty][funding]) {
                 groupedData[specialty][funding][form].sort((a, b) => b.grade - a.grade);
-                groupedData[specialty][funding][form] = groupedData[specialty][funding][form].slice(0, 25);
+                groupedData[specialty][funding][form] = groupedData[specialty][funding][form].slice(0, 50);
             }
         }
     }
@@ -76,7 +77,7 @@ function displayTables(data) {
                 const tbody = document.createElement('tbody');
 
                 const headerRow = document.createElement('tr');
-                ['ФИО', 'Специальность', 'Средний балл', 'Экзамен', 'Финансирование', 'Форма обучения'].forEach(text => {
+                ['ФИО', 'Специальность', 'Средний балл', 'Экзамен', 'Финансирование', 'Форма обучения', 'Предоставлен'].forEach(text => {
                     const th = document.createElement('th');
                     th.textContent = text;
                     headerRow.appendChild(th);
@@ -109,6 +110,10 @@ function displayTables(data) {
                     formCell.textContent = item.form;
                     row.appendChild(formCell);
 
+                    const providedCell = document.createElement('td');
+                    providedCell.textContent = item.provided; // New column
+                    row.appendChild(providedCell);
+
                     tbody.appendChild(row);
                 });
 
@@ -119,7 +124,7 @@ function displayTables(data) {
                 // Add student count and horizontal line
                 const countDiv = document.createElement('div');
                 countDiv.classList.add('student-count');
-                countDiv.textContent = `Количество студентов: ${data[specialty][funding][form].length}`;
+                countDiv.textContent = `Total students: ${data[specialty][funding][form].length}`;
                 outputDiv.appendChild(countDiv);
 
                 const hr = document.createElement('hr');
