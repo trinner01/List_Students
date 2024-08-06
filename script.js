@@ -1,4 +1,5 @@
 let dataArray = [];
+let sortOrder = {};  // Для отслеживания порядка сортировки для каждой таблицы
 
 // Обработчик события для загрузки файла
 document.getElementById('fileInput').addEventListener('change', function(event) {
@@ -15,9 +16,20 @@ document.getElementById('fileInput').addEventListener('change', function(event) 
 
 // Обработчик события для показа таблиц
 document.getElementById('showTablesButton').addEventListener('click', function() {
-    const sortedData = distributeStudentsByPriority(dataArray);
+    const showOriginalsOnly = document.getElementById('originalsOnlyCheckbox').checked;
+    const sortedData = distributeStudentsByPriority(dataArray, showOriginalsOnly);
     displayTables(sortedData);
 });
+
+// Обработчик изменения состояния чекбокса
+document.getElementById('originalsOnlyCheckbox').addEventListener('change', function() {
+    const showOriginalsOnly = this.checked;
+    const sortedData = distributeStudentsByPriority(dataArray, showOriginalsOnly);
+    displayTables(sortedData);
+});
+
+// Обработчик события для скачивания PDF
+document.getElementById('downloadPDFButton').addEventListener('click', downloadPDF);
 
 // Функция для преобразования CSV в массив объектов
 function csvToArray(csv) {
@@ -40,7 +52,7 @@ function csvToArray(csv) {
 }
 
 // Функция для распределения студентов по приоритетам
-function distributeStudentsByPriority(data) {
+function distributeStudentsByPriority(data, showOriginalsOnly) {
     const maxPriority = 9;
     const specialtyTables = {};
     const addedStudents = new Set(); // Множество для хранения уникальных студентов
@@ -81,7 +93,7 @@ function distributeStudentsByPriority(data) {
     // Создаем таблицы для каждого приоритета
     for (let priority = 1; priority <= maxPriority; priority++) {
         for (const student of students) {
-            if (student.priority === priority && !addedStudents.has(student.name)) {
+            if (student.priority === priority && (!showOriginalsOnly || student.provided === 'Оригинал') && !addedStudents.has(student.name)) {
                 const specialtyKey = `${student.specialty}-${student.funding}-${student.form}`;
                 
                 if (!specialtyTables[specialtyKey]) {
@@ -91,6 +103,20 @@ function distributeStudentsByPriority(data) {
                 // Добавляем студента, если место еще есть в топ 50
                 if (specialtyTables[specialtyKey].length < 50) {
                     student.priorityNumber = priority;
+                    specialtyTables[specialtyKey].push(student);
+                    addedStudents.add(student.name);
+                }
+            }
+        }
+    }
+
+    // Если выбраны только оригиналы, то добавляем студентов с оригиналами до тех пор, пока их не станет 50
+    if (showOriginalsOnly) {
+        for (let specialtyKey in specialtyTables) {
+            const originalStudents = students.filter(student => student.provided === 'Оригинал' && !addedStudents.has(student.name));
+            for (const student of originalStudents) {
+                if (specialtyTables[specialtyKey].length < 50) {
+                    student.priorityNumber = student.priority;
                     specialtyTables[specialtyKey].push(student);
                     addedStudents.add(student.name);
                 }
@@ -112,9 +138,17 @@ function displayTables(data) {
         const tbody = document.createElement('tbody');
 
         const headerRow = document.createElement('tr');
-        ['Name', 'Specialty', 'Grade', 'Exam', 'Funding', 'Form', 'Provided', 'Priority Number'].forEach(text => {
+        ['Name', 'Specialty', 'Grade', 'Exam', 'Funding', 'Form', 'Provided', 'Priority Number'].forEach((text, index) => {
             const th = document.createElement('th');
             th.textContent = text;
+            if (text === 'Grade') {
+                const arrowSpan = document.createElement('span');
+                arrowSpan.classList.add('arrow');
+                th.appendChild(arrowSpan);
+                th.addEventListener('click', () => {
+                    toggleSortOrder(data, key, index);
+                });
+            }
             headerRow.appendChild(th);
         });
         thead.appendChild(headerRow);
@@ -136,7 +170,6 @@ function displayTables(data) {
             const examCell = document.createElement('td');
             examCell.textContent = item.exam;
             row.appendChild(examCell);
-
             const fundingCell = document.createElement('td');
             fundingCell.textContent = item.funding;
             row.appendChild(fundingCell);
@@ -170,3 +203,70 @@ function displayTables(data) {
         outputDiv.appendChild(hr);
     }
 }
+
+// Функция для переключения порядка сортировки
+function toggleSortOrder(data, key, index) {
+    let sortOrder = dataArray.sortOrder || {};
+    let order = sortOrder[key] || 'desc'; // По умолчанию по убыванию
+    let newOrder = order === 'desc' ? 'asc' : 'desc';
+    sortOrder[key] = newOrder;
+
+    // Сортировка данных
+    data[key].sort((a, b) => {
+        if (index === 2) { // Столбец Grade
+            return newOrder === 'asc' ? a.grade - b.grade : b.grade - a.grade;
+        }
+        // Если нужно добавить сортировку по другим столбцам, добавьте условия здесь
+        return 0;
+    });
+
+    dataArray.sortOrder = sortOrder;
+    displayTables(data);
+}
+
+// Функция для создания и скачивания PDF
+async function downloadPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    const tables = document.querySelectorAll('#output table');
+    let yOffset = 10; // Начальная позиция по вертикали
+
+    for (const table of tables) {
+        const headers = [];
+        const rows = [];
+
+        // Сбор заголовков таблицы
+        table.querySelectorAll('thead th').forEach(th => {
+            headers.push(th.textContent);
+        });
+
+        // Сбор данных таблицы
+        table.querySelectorAll('tbody tr').forEach(tr => {
+            const row = [];
+            tr.querySelectorAll('td').forEach(td => {
+                row.push(td.textContent);
+            });
+            rows.push(row);
+        });
+
+        // Добавление таблицы в PDF
+        doc.autoTable({
+            head: [headers],
+            body: rows,
+            startY: yOffset,
+            theme: 'striped',
+            styles: {
+                font: 'Roboto',
+                cellPadding: 2,
+                overflow: 'linebreak'
+            }
+        });
+
+        yOffset = doc.autoTable.previous.finalY + 10; // Отступ между таблицами
+    }
+
+    // Сохранение PDF
+    doc.save('students.pdf');
+}
+document.getElementById('downloadPDFButton').addEventListener('click', downloadPDF);
