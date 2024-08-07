@@ -75,3 +75,18 @@ th {
     background-color: #f4f4f4;
     cursor: pointer;
 }
+
+.sorted {
+    cursor: pointer;
+}
+.sorted::after {
+    content: ' \25B2'; /* Arrow up */
+    font-size: 0.7em;
+}
+.sorted.desc::after {
+    content: ' \25BC'; /* Arrow down */
+}
+
+label{
+    font-weight: bold;
+}
