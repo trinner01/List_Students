@@ -52,7 +52,6 @@ function csvToArray(csv) {
 }
 
 // Функция для распределения студентов по приоритетам
-// Функция для распределения студентов по приоритетам
 function distributeStudentsByPriority(data, showOriginalsOnly) {
     const maxPriority = 9;
     const specialtyTables = {};
@@ -101,8 +100,8 @@ function distributeStudentsByPriority(data, showOriginalsOnly) {
                     specialtyTables[specialtyKey] = [];
                 }
 
-                // Добавляем студента, если место еще есть в топ 75
-                if (specialtyTables[specialtyKey].length < 75) {
+                // Добавляем студента, если место еще есть в топ 50
+                if (specialtyTables[specialtyKey].length < 50) {
                     student.priorityNumber = priority;
                     specialtyTables[specialtyKey].push(student);
                     addedStudents.add(student.name);
@@ -111,12 +110,12 @@ function distributeStudentsByPriority(data, showOriginalsOnly) {
         }
     }
 
-    // Если выбраны только оригиналы, то добавляем студентов с оригиналами до тех пор, пока их не станет 75
+    // Если выбраны только оригиналы, то добавляем студентов с оригиналами до тех пор, пока их не станет 50
     if (showOriginalsOnly) {
         for (let specialtyKey in specialtyTables) {
             const originalStudents = students.filter(student => student.provided === 'Оригинал' && !addedStudents.has(student.name));
             for (const student of originalStudents) {
-                if (specialtyTables[specialtyKey].length < 75) {
+                if (specialtyTables[specialtyKey].length < 50) {
                     student.priorityNumber = student.priority;
                     specialtyTables[specialtyKey].push(student);
                     addedStudents.add(student.name);
@@ -125,33 +124,8 @@ function distributeStudentsByPriority(data, showOriginalsOnly) {
         }
     }
 
-    
-    for (const student of students) {
-        if (!addedStudents.has(student.name)) {
-            for (let priority = 1; priority <= maxPriority; priority++) {
-                if (student.priority === priority) {
-                    const specialtyKey = `${student.specialty}-${student.funding}-${student.form}`;
-                    
-                    if (!specialtyTables[specialtyKey]) {
-                        specialtyTables[specialtyKey] = [];
-                    }
-
-                    // Добавление студента в список до достижения 75 человек
-                    if (specialtyTables[specialtyKey].length < 75) {
-                        student.priorityNumber = priority;
-                        specialtyTables[specialtyKey].push(student);
-                        addedStudents.add(student.name);
-                    } else {
-                        break; // Прекращаем добавление, если достигли 75 человек
-                    }
-                }
-            }
-        }
-    }
-
     return specialtyTables;
 }
-
 
 // Функция для отображения таблиц
 function displayTables(data) {
@@ -164,13 +138,6 @@ function displayTables(data) {
         const tbody = document.createElement('tbody');
 
         const headerRow = document.createElement('tr');
-
-        // Добавляем новый заголовок для номера
-        const numberHeader = document.createElement('th');
-        numberHeader.textContent = '№';
-        headerRow.appendChild(numberHeader);
-
-        // Остальные заголовки
         ['Name', 'Specialty', 'Grade', 'Exam', 'Funding', 'Form', 'Provided', 'Priority Number'].forEach((text, index) => {
             const th = document.createElement('th');
             th.textContent = text;
@@ -186,14 +153,8 @@ function displayTables(data) {
         });
         thead.appendChild(headerRow);
 
-        data[key].forEach((item, index) => {
+        data[key].forEach(item => {
             const row = document.createElement('tr');
-
-            // Добавляем ячейку с номером
-            const numberCell = document.createElement('td');
-            numberCell.textContent = index + 1;
-            row.appendChild(numberCell);
-
             const nameCell = document.createElement('td');
             nameCell.textContent = item.name;
             row.appendChild(nameCell);
@@ -231,14 +192,6 @@ function displayTables(data) {
         table.appendChild(thead);
         table.appendChild(tbody);
         outputDiv.appendChild(table);
-
-        // Добавить проверку, если студент не попал в топ-25
-        if (data[key].length > 25) {
-            for (let i = 25; i < data[key].length; i++) {
-                const row = tbody.childNodes[i];
-                row.style.backgroundColor = 'gray';
-            }
-        }
 
         // Добавление количества студентов и горизонтальной линии
         const countDiv = document.createElement('div');
