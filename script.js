@@ -1,6 +1,30 @@
 let dataArray = [];
 let sortOrder = {};  // Для отслеживания порядка сортировки для каждой таблицы
 
+// Приоритеты специальностей
+const specialtyPriorities = {
+    '39.02.01 Социальная работа': 1,
+    '43.02.16 Туризм и гостеприимство': 2,
+    '44.02.01 Дошкольное образование': 3,
+    '44.02.02 Преподавание в начальных классах': 4,
+    '44.02.03 Педагогика дополнительного образования': 5,
+    '44.02.04 Специальное дошкольное образование': 6,
+    '44.02.05 Коррекционная педагогика в начальном образовании': 7,
+    '49.02.01 Физическая культура': 8,
+    '49.02.02 Адаптивная физическая культура': 9,
+    '53.02.01 Музыкальное образование': 10,
+    '54.01.20 Графический дизайнер': 11,
+    '54.02.06 Изобразительное искусство и черчение': 12
+};
+
+// Специальности, для которых статус "Не предусмотрено"
+const noExamSpecialties = [
+    '43.02.16 Туризм и гостеприимство',
+    '54.01.20 Графический дизайнер',
+    '39.02.01 Социальная работа',
+    '44.02.03 Педагогика дополнительного образования'
+];
+
 // Обработчик события для загрузки файла
 document.getElementById('fileInput').addEventListener('change', function(event) {
     const file = event.target.files[0];
@@ -17,14 +41,14 @@ document.getElementById('fileInput').addEventListener('change', function(event) 
 // Обработчик события для показа таблиц
 document.getElementById('showTablesButton').addEventListener('click', function() {
     const showOriginalsOnly = document.getElementById('originalsOnlyCheckbox').checked;
-    const sortedData = distributeStudentsByPriority(dataArray, showOriginalsOnly);
+    const sortedData = distributeStudentsByAverageGrade(dataArray, showOriginalsOnly);
     displayTables(sortedData);
 });
 
 // Обработчик изменения состояния чекбокса
 document.getElementById('originalsOnlyCheckbox').addEventListener('change', function() {
     const showOriginalsOnly = this.checked;
-    const sortedData = distributeStudentsByPriority(dataArray, showOriginalsOnly);
+    const sortedData = distributeStudentsByAverageGrade(dataArray, showOriginalsOnly);
     displayTables(sortedData);
 });
 
@@ -37,27 +61,30 @@ function csvToArray(csv) {
     const headers = rows[0].split(';').map(header => header.replace(/"/g, '').trim());
     const data = rows.slice(1).map(row => {
         const values = row.split(';').map(value => value.replace(/"/g, '').trim());
+        const specialty = values[1];
+        const entranceExamResult = noExamSpecialties.includes(specialty) ? 'Не предусмотрено' : values[8];
+        
         return {
             name: values[0],
-            specialty: values[1],
+            specialty: specialty,
             grade: parseFloat(values[2].replace(',', '.')),
             exam: values[3],
             priority: parseInt(values[4], 10),
             funding: values[5],
             form: values[6],
-            provided: values[7]
+            provided: values[7],
+            entranceExamResult: entranceExamResult
         };
     });
     return data;
 }
 
-// Функция для распределения студентов по приоритетам
-// Функция для распределения студентов по приоритетам
-function distributeStudentsByPriority(data, showOriginalsOnly) {
-    const maxPriority = 9;
+// Функция для распределения студентов по специальностям и формам обучения
+function distributeStudentsByAverageGrade(data, showOriginalsOnly) {
     const specialtyTables = {};
     const addedStudents = new Set(); // Множество для хранения уникальных студентов
 
+    // Список допустимых специальностей, форм и финансирования
     const validSpecialties = [
         '39.02.01 Социальная работа',
         '43.02.16 Туризм и гостеприимство',
@@ -72,86 +99,36 @@ function distributeStudentsByPriority(data, showOriginalsOnly) {
         '54.01.20 Графический дизайнер',
         '54.02.06 Изобразительное искусство и черчение'
     ];
-
     const validForms = ['Oчнo', 'Заочно'];
     const validFundings = ['Бюджет', 'Коммерция'];
-    
-    const specialtiesAllowingNoExam = [
-        '39.02.01 Социальная работа',
-        '43.02.16 Туризм и гостеприимство',
-        '44.02.03 Педагогика дополнительного образования',
-        '54.01.20 Графический дизайнер'
-    ];
 
     // Отфильтровать студентов по критериям
     const students = data.filter(student => 
         validSpecialties.includes(student.specialty) &&
         validForms.includes(student.form) &&
         validFundings.includes(student.funding) &&
-        (student.exam === 'Да' || (specialtiesAllowingNoExam.includes(student.specialty) && student.exam === 'Нет'))
+        student.entranceExamResult !== 'Неявка' &&
+        student.entranceExamResult !== 'Незач' &&
+        (student.exam === 'Да' || student.entranceExamResult === 'Зачет' || student.entranceExamResult === 'Не предусмотрено')
     ).sort((a, b) => b.grade - a.grade); // Сортируем по убыванию оценки
 
-    // Создаем таблицы для каждого приоритета
-    for (let priority = 1; priority <= maxPriority; priority++) {
-        for (const student of students) {
-            if (student.priority === priority && (!showOriginalsOnly || student.provided === 'Оригинал') && !addedStudents.has(student.name)) {
-                const specialtyKey = `${student.specialty}-${student.funding}-${student.form}`;
-                
-                if (!specialtyTables[specialtyKey]) {
-                    specialtyTables[specialtyKey] = [];
-                }
-
-                // Добавляем студента, если место еще есть в топ 75
-                if (specialtyTables[specialtyKey].length < 75) {
-                    student.priorityNumber = priority;
-                    specialtyTables[specialtyKey].push(student);
-                    addedStudents.add(student.name);
-                }
+    // Создаем таблицы для каждой специальности и формы
+    students.forEach(student => {
+        if (!showOriginalsOnly || student.provided === 'Оригинал') {
+            const specialtyKey = `${student.specialty}-${student.funding}-${student.form}`;
+            
+            if (!specialtyTables[specialtyKey]) {
+                specialtyTables[specialtyKey] = [];
             }
-        }
-    }
 
-    // Если выбраны только оригиналы, то добавляем студентов с оригиналами до тех пор, пока их не станет 75
-    if (showOriginalsOnly) {
-        for (let specialtyKey in specialtyTables) {
-            const originalStudents = students.filter(student => student.provided === 'Оригинал' && !addedStudents.has(student.name));
-            for (const student of originalStudents) {
-                if (specialtyTables[specialtyKey].length < 75) {
-                    student.priorityNumber = student.priority;
-                    specialtyTables[specialtyKey].push(student);
-                    addedStudents.add(student.name);
-                }
-            }
+            // Добавляем студента в таблицу
+            specialtyTables[specialtyKey].push(student);
+            addedStudents.add(student.name);
         }
-    }
-
-    
-    for (const student of students) {
-        if (!addedStudents.has(student.name)) {
-            for (let priority = 1; priority <= maxPriority; priority++) {
-                if (student.priority === priority) {
-                    const specialtyKey = `${student.specialty}-${student.funding}-${student.form}`;
-                    
-                    if (!specialtyTables[specialtyKey]) {
-                        specialtyTables[specialtyKey] = [];
-                    }
-
-                    // Добавление студента в список до достижения 75 человек
-                    if (specialtyTables[specialtyKey].length < 75) {
-                        student.priorityNumber = priority;
-                        specialtyTables[specialtyKey].push(student);
-                        addedStudents.add(student.name);
-                    } else {
-                        break; // Прекращаем добавление, если достигли 75 человек
-                    }
-                }
-            }
-        }
-    }
+    });
 
     return specialtyTables;
 }
-
 
 // Функция для отображения таблиц
 function displayTables(data) {
@@ -171,7 +148,7 @@ function displayTables(data) {
         headerRow.appendChild(numberHeader);
 
         // Остальные заголовки
-        ['Name', 'Specialty', 'Grade', 'Exam', 'Funding', 'Form', 'Provided', 'Priority Number'].forEach((text, index) => {
+        ['Name', 'Specialty', 'Grade', 'Exam', 'Funding', 'Form', 'Provided', 'Priority Number', 'Entrance Exam Result'].forEach((text, index) => {
             const th = document.createElement('th');
             th.textContent = text;
             if (text === 'Grade') {
@@ -209,6 +186,7 @@ function displayTables(data) {
             const examCell = document.createElement('td');
             examCell.textContent = item.exam;
             row.appendChild(examCell);
+
             const fundingCell = document.createElement('td');
             fundingCell.textContent = item.funding;
             row.appendChild(fundingCell);
@@ -222,8 +200,12 @@ function displayTables(data) {
             row.appendChild(providedCell);
 
             const priorityNumberCell = document.createElement('td');
-            priorityNumberCell.textContent = item.priorityNumber;
+            priorityNumberCell.textContent = item.priority;
             row.appendChild(priorityNumberCell);
+
+            const entranceExamResultCell = document.createElement('td');
+            entranceExamResultCell.textContent = item.entranceExamResult;
+            row.appendChild(entranceExamResultCell);
 
             tbody.appendChild(row);
         });
@@ -232,88 +214,67 @@ function displayTables(data) {
         table.appendChild(tbody);
         outputDiv.appendChild(table);
 
-        // Добавить проверку, если студент не попал в топ-25
-        if (data[key].length > 25) {
-            for (let i = 25; i < data[key].length; i++) {
-                const row = tbody.childNodes[i];
-                row.style.backgroundColor = 'gray';
-            }
-        }
-
         // Добавление количества студентов и горизонтальной линии
         const countDiv = document.createElement('div');
-        countDiv.classList.add('student-count');
-        countDiv.textContent = `Total students: ${data[key].length}`;
+        countDiv.textContent = `Количество студентов: ${data[key].length}`;
         outputDiv.appendChild(countDiv);
-
-        const hr = document.createElement('hr');
-        outputDiv.appendChild(hr);
+        outputDiv.appendChild(document.createElement('hr'));
     }
 }
 
-// Функция для переключения порядка сортировки
-function toggleSortOrder(data, key, index) {
-    let sortOrder = dataArray.sortOrder || {};
-    let order = sortOrder[key] || 'desc'; // По умолчанию по убыванию
-    let newOrder = order === 'desc' ? 'asc' : 'desc';
-    sortOrder[key] = newOrder;
+// Функция для переключения порядка сортировки и сортировки данных
+function toggleSortOrder(data, specialtyKey, columnIndex) {
+    const order = sortOrder[specialtyKey] || 'asc'; // По умолчанию порядок "asc"
+    const newOrder = order === 'asc' ? 'desc' : 'asc';
+    sortOrder[specialtyKey] = newOrder;
 
-    // Сортировка данных
-    data[key].sort((a, b) => {
-        if (index === 2) { // Столбец Grade
-            return newOrder === 'asc' ? a.grade - b.grade : b.grade - a.grade;
+    // Сортировка данных в зависимости от выбранного столбца
+    data[specialtyKey].sort((a, b) => {
+        if (columnIndex === 2) { // Сортировка по столбцу "Grade"
+            return newOrder === 'desc' ? b.grade - a.grade : a.grade - b.grade;
         }
-        // Если нужно добавить сортировку по другим столбцам, добавьте условия здесь
-        return 0;
     });
 
-    dataArray.sortOrder = sortOrder;
+    // Перерисовка таблиц с новым порядком
     displayTables(data);
 }
 
-// Функция для создания и скачивания PDF
-async function downloadPDF() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
+// Функция для скачивания таблиц в формате PDF
+function downloadPDF() {
+    const tables = document.querySelectorAll('table');
+    const pdf = new jsPDF('p', 'pt', 'a4');
 
-    const tables = document.querySelectorAll('#output table');
-    let yOffset = 10; // Начальная позиция по вертикали
+    tables.forEach((table, tableIndex) => {
+        const rows = Array.from(table.querySelectorAll('tr')).map(tr =>
+            Array.from(tr.querySelectorAll('th, td')).map(td => td.innerText)
+        );
 
-    for (const table of tables) {
-        const headers = [];
-        const rows = [];
+        const pageHeight = pdf.internal.pageSize.height;
 
-        // Сбор заголовков таблицы
-        table.querySelectorAll('thead th').forEach(th => {
-            headers.push(th.textContent);
-        });
-
-        // Сбор данных таблицы
-        table.querySelectorAll('tbody tr').forEach(tr => {
-            const row = [];
-            tr.querySelectorAll('td').forEach(td => {
-                row.push(td.textContent);
-            });
-            rows.push(row);
-        });
-
-        // Добавление таблицы в PDF
-        doc.autoTable({
-            head: [headers],
-            body: rows,
-            startY: yOffset,
-            theme: 'striped',
-            styles: {
-                font: 'Roboto',
-                cellPadding: 2,
-                overflow: 'linebreak'
+        pdf.autoTable({
+            head: [rows[0]],
+            body: rows.slice(1),
+            startY: tableIndex === 0 ? 20 : pdf.lastAutoTable.finalY + 20,
+            theme: 'grid',
+            tableWidth: 'auto',
+            margin: { top: 30 },
+            styles: { fontSize: 8 },
+            didDrawPage: function (data) {
+                if (tableIndex === 0) {
+                    pdf.text(`Specialty: ${table.querySelector('caption').innerText}`, 14, 10);
+                }
+                let str = 'Page ' + pdf.internal.getNumberOfPages();
+                if (tableIndex !== tables.length - 1) {
+                    str += ' of ' + tables.length;
+                }
+                pdf.text(str, pdf.internal.pageSize.width - 40, pdf.internal.pageSize.height - 30);
             }
         });
 
-        yOffset = doc.autoTable.previous.finalY + 10; // Отступ между таблицами
-    }
+        if (pdf.lastAutoTable.finalY >= pageHeight - 20) {
+            pdf.addPage();
+        }
+    });
 
-    // Сохранение PDF
-    doc.save('students.pdf');
+    pdf.save('tables.pdf');
 }
-document.getElementById('downloadPDFButton').addEventListener('click', downloadPDF);

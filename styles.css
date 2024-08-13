@@ -90,3 +90,8 @@ th {
 label {
     font-weight: bold;
 }
+
+table tr:nth-child(n+26) {
+    background-color: gray;
+}
+
