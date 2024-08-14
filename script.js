@@ -82,53 +82,63 @@ function csvToArray(csv) {
 // Функция для распределения студентов по специальностям и формам обучения
 function distributeStudentsByAverageGrade(data, showOriginalsOnly) {
     const specialtyTables = {};
-    const addedStudents = new Set(); // Множество для хранения уникальных студентов
+    const studentPriorityMap = {}; // Для отслеживания приоритета, в который студент был добавлен
 
-    // Список допустимых специальностей, форм и финансирования
-    const validSpecialties = [
-        '39.02.01 Социальная работа',
-        '43.02.16 Туризм и гостеприимство',
-        '44.02.01 Дошкольное образование',
-        '44.02.02 Преподавание в начальных классах',
-        '44.02.03 Педагогика дополнительного образования',
-        '44.02.04 Специальное дошкольное образование',
-        '44.02.05 Коррекционная педагогика в начальном образовании',
-        '49.02.01 Физическая культура',
-        '49.02.02 Адаптивная физическая культура',
-        '53.02.01 Музыкальное образование',
-        '54.01.20 Графический дизайнер',
-        '54.02.06 Изобразительное искусство и черчение'
-    ];
+    const validSpecialties = Object.keys(specialtyPriorities);
     const validForms = ['Oчнo', 'Заочно'];
     const validFundings = ['Бюджет', 'Коммерция'];
 
-    // Отфильтровать студентов по критериям
-    const students = data.filter(student => 
+    // Фильтрация студентов
+    const students = data.filter(student =>
         validSpecialties.includes(student.specialty) &&
         validForms.includes(student.form) &&
         validFundings.includes(student.funding) &&
         student.entranceExamResult !== 'Неявка' &&
         student.entranceExamResult !== 'Незач' &&
         (student.exam === 'Да' || student.entranceExamResult === 'Зачет' || student.entranceExamResult === 'Не предусмотрено')
-    ).sort((a, b) => b.grade - a.grade); // Сортируем по убыванию оценки
+    ).sort((a, b) => b.grade - a.grade); // Сортировка по убыванию среднего балла
 
-    // Создаем таблицы для каждой специальности и формы
+    // Белые ячейки: распределение студентов по их приоритетам
     students.forEach(student => {
         if (!showOriginalsOnly || student.provided === 'Оригинал') {
             const specialtyKey = `${student.specialty}-${student.funding}-${student.form}`;
-            
+
             if (!specialtyTables[specialtyKey]) {
                 specialtyTables[specialtyKey] = [];
             }
 
-            // Добавляем студента в таблицу
+            if (!studentPriorityMap[student.name] ||
+                specialtyPriorities[student.specialty] < specialtyPriorities[studentPriorityMap[student.name].specialty]) {
+
+                if (studentPriorityMap[student.name]) {
+                    // Удаление студента из предыдущей таблицы
+                    const prevKey = studentPriorityMap[student.name].key;
+                    specialtyTables[prevKey] = specialtyTables[prevKey].filter(s => s.name !== student.name);
+                }
+
+                specialtyTables[specialtyKey].push(student);
+                studentPriorityMap[student.name] = { key: specialtyKey, specialty: student.specialty };
+            }
+        }
+    });
+
+    // Серые ячейки: добавление студентов в серые ячейки, если они не были добавлены в белую ячейку по этому приоритету
+    students.forEach(student => {
+        if (!studentPriorityMap[student.name] || studentPriorityMap[student.name].specialty !== student.specialty) {
+            const specialtyKey = `${student.specialty}-${student.funding}-${student.form}`;
+
+            if (!specialtyTables[specialtyKey]) {
+                specialtyTables[specialtyKey] = [];
+            }
+
+            // Добавляем студента в серую ячейку
             specialtyTables[specialtyKey].push(student);
-            addedStudents.add(student.name);
         }
     });
 
     return specialtyTables;
 }
+
 
 // Функция для отображения таблиц
 function displayTables(data) {
