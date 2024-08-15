@@ -2,22 +2,56 @@ let dataArray = [];
 let sortOrder = {}; // Для отслеживания порядка сортировки для каждой таблицы
 
 // Определение правил для окрашивания строк
+// Определение правил для окрашивания строк
 const specialtyColorRules = {
-    // Бюджет
-    '44.02.01 Дошкольное образование': { form: 'Oчнo', funding: 'Бюджет', startIndex: 35+1 },
-    '44.02.01 Дошкольное образование': { form: 'Заочно', funding: 'Бюджет', startIndex: 20+1 },
-    // Коммерция
-    '44.02.01 Дошкольное образование': { form: 'Oчнo', funding: 'Коммерция', startIndex: 15+1 },
-    '44.02.02 Преподавание в начальных классах': { form: 'Oчнo', funding: 'Коммерция', startIndex: 5+1 },
-    '44.02.04 Специальное дошкольное образования': { form: 'Oчнo', funding: 'Коммерция', startIndex: 5+1 },
-    '44.02.05 Коррекционная педагогика в начальном образовании': { form: 'Oчнo', funding: 'Коммерция', startIndex: 5+1 },
-    '44.02.03 Педагогика дополнительного образования': { form: 'Oчнo', funding: 'Коммерция', startIndex: 5+1 },
-    '49.02.02 Адаптивная физическая культура': { form: 'Oчнo', funding: 'Коммерция', startIndex: 5+1 },
-    '53.02.01 Музыкальное образование': { form: 'Oчнo', funding: 'Коммерция', startIndex: 5+1 },
-    '54.02.06 Изобразительное искусство и черчение': { form: 'Oчнo', funding: 'Коммерция', startIndex: 5+1 },
-    '44.02.01 Дошкольное образование': { form: 'Заочно', funding: 'Коммерция', startIndex: 5+1 },
+    '44.02.01 Дошкольное образование': {
+        'Бюджет': {
+            'Oчнo': { startIndex: 36 },
+            'Заочно': { startIndex: 21 }
+        },
+        'Коммерция': {
+            'Oчнo': { startIndex: 16 },
+            'Заочно': { startIndex: 6 }
+        }
+    },
+    '44.02.02 Преподавание в начальных классах': {
+        'Коммерция': {
+            'Oчнo': { startIndex: 6 }
+        }
+    },
+    '44.02.04 Специальное дошкольное образование': {
+        'Коммерция': {
+            'Oчнo': { startIndex: 6 }
+        }
+    },
+    '44.02.05 Коррекционная педагогика в начальном образовании': {
+        'Коммерция': {
+            'Oчнo': { startIndex: 6 }
+        }
+    },
+    '44.02.03 Педагогика дополнительного образования': {
+        'Коммерция': {
+            'Oчнo': { startIndex: 6 }
+        }
+    },
+    '49.02.02 Адаптивная физическая культура': {
+        'Коммерция': {
+            'Oчнo': { startIndex: 6 }
+        }
+    },
+    '53.02.01 Музыкальное образование': {
+        'Коммерция': {
+            'Oчнo': { startIndex: 6 }
+        }
+    },
+    '54.02.06 Изобразительное искусство и черчение': {
+        'Коммерция': {
+            'Oчнo': { startIndex: 6 }
+        }
+    }
     // Добавьте другие специальности и их правила
 };
+
 
 // Определение приоритетов специальностей
 const specialtyPriorities = {
@@ -247,25 +281,30 @@ function removeStudent(data, specialtyKey, studentName) {
 function setRowColors(tbody, specialtyColorRules, defaultStartIndex) {
     const rows = Array.from(tbody.querySelectorAll('tr'));
     rows.forEach((row, index) => {
-        const specialtyCell = row.cells[3].textContent;
-        const formCell = row.cells[7].textContent;
-        const fundingCell = row.cells[6].textContent;
+        const specialtyCell = row.cells[3].textContent.trim();
+        const formCell = row.cells[7].textContent.trim();
+        const fundingCell = row.cells[6].textContent.trim();
         
         // Определяем startIndex на основе правила или используем значение по умолчанию
-        const colorRule = Object.keys(specialtyColorRules).find(key =>
-            specialtyCell.includes(key) &&
-            (formCell === specialtyColorRules[key].form || !specialtyColorRules[key].form) &&
-            (fundingCell === specialtyColorRules[key].funding || !specialtyColorRules[key].funding)
-        );
+        let startIndex = defaultStartIndex;
 
-        const startIndex = colorRule ? specialtyColorRules[colorRule].startIndex : defaultStartIndex;
-        
+        if (specialtyColorRules[specialtyCell]) {
+            const fundingRules = specialtyColorRules[specialtyCell][fundingCell];
+            if (fundingRules) {
+                const formRule = fundingRules[formCell];
+                if (formRule) {
+                    startIndex = formRule.startIndex;
+                }
+            }
+        }
+
         // Устанавливаем цвет фона
         if (index >= startIndex - 1) {
             row.style.backgroundColor = 'lightcoral'; // Красный цвет для серых ячеек
         }
     });
 }
+
 
 // Функция для переключения порядка сортировки и сортировки данных
 function toggleSortOrder(data, specialtyKey, columnIndex) {
