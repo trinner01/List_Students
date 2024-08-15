@@ -1,5 +1,5 @@
 let dataArray = [];
-let sortOrder = {};  // Для отслеживания порядка сортировки для каждой таблицы
+let sortOrder = {}; // Для отслеживания порядка сортировки для каждой таблицы
 
 // Приоритеты специальностей
 const specialtyPriorities = {
@@ -63,7 +63,7 @@ function csvToArray(csv) {
         const values = row.split(';').map(value => value.replace(/"/g, '').trim());
         const specialty = values[1];
         const entranceExamResult = noExamSpecialties.includes(specialty) ? 'Не предусмотрено' : values[8];
-        
+
         return {
             name: values[0],
             specialty: specialty,
@@ -158,7 +158,7 @@ function displayTables(data) {
         headerRow.appendChild(numberHeader);
 
         // Остальные заголовки
-        ['Name', 'Specialty', 'Grade', 'Exam', 'Funding', 'Form', 'Provided', 'Priority Number', 'Entrance Exam Result'].forEach((text, index) => {
+        ['Удалить', 'Name', 'Specialty', 'Grade', 'Exam', 'Funding', 'Form', 'Provided', 'Priority Number', 'Entrance Exam Result'].forEach((text, index) => {
             const th = document.createElement('th');
             th.textContent = text;
             if (text === 'Grade') {
@@ -180,6 +180,16 @@ function displayTables(data) {
             const numberCell = document.createElement('td');
             numberCell.textContent = index + 1;
             row.appendChild(numberCell);
+
+            // Добавляем ячейку с кнопкой удаления
+            const deleteCell = document.createElement('td');
+            const deleteButton = document.createElement('button');
+            deleteButton.textContent = 'Удалить';
+            deleteButton.addEventListener('click', () => {
+                removeStudent(data, item.name);
+            });
+            deleteCell.appendChild(deleteButton);
+            row.appendChild(deleteCell);
 
             const nameCell = document.createElement('td');
             nameCell.textContent = item.name;
@@ -232,6 +242,39 @@ function displayTables(data) {
     }
 }
 
+function removeStudent(data, studentName) {
+    const studentPriorityMap = {};
+
+    // Найти все вхождения студента в белые и серые ячейки и удалить его
+    for (const key in data) {
+        data[key] = data[key].filter(student => {
+            if (student.name === studentName) {
+                studentPriorityMap[student.name] = student.specialty;
+            }
+            return student.name !== studentName;
+        });
+    }
+
+    // Перераспределение студентов: Пополнение белых ячеек до 25
+    for (const key in data) {
+        if (data[key].length < 25) {
+            const grayStudents = data[key].filter(student => student.specialty !== studentPriorityMap[student.name]);
+            if (grayStudents.length > 0) {
+                const firstGrayStudent = grayStudents[0];
+                data[key].push(firstGrayStudent);
+                // Удаляем студента из серой ячейки
+                for (const otherKey in data) {
+                    data[otherKey] = data[otherKey].filter(student => student.name !== firstGrayStudent.name);
+                }
+            }
+        }
+    }
+
+    displayTables(data);
+}
+
+
+
 // Функция для переключения порядка сортировки и сортировки данных
 function toggleSortOrder(data, specialtyKey, columnIndex) {
     const order = sortOrder[specialtyKey] || 'asc'; // По умолчанию порядок "asc"
@@ -269,7 +312,7 @@ function downloadPDF() {
             tableWidth: 'auto',
             margin: { top: 30 },
             styles: { fontSize: 8 },
-            didDrawPage: function (data) {
+            didDrawPage: function(data) {
                 if (tableIndex === 0) {
                     pdf.text(`Specialty: ${table.querySelector('caption').innerText}`, 14, 10);
                 }
