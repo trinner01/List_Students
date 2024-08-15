@@ -53,25 +53,6 @@ th, td {
 }
 
 th {
-    background-color: #f2f2f2;
-}
-
-.student-count {
-    font-weight: bold;
-    margin-bottom: 20px;
-}
-.arrow {
-    margin-left: 5px;
-}
-
-hr {
-    border: none;
-    height: 1px;
-    background-color: #ccc;
-    margin: 10px 0;
-}
-
-th {
     background-color: #f4f4f4;
     cursor: pointer;
 }
@@ -79,10 +60,12 @@ th {
 .sorted {
     cursor: pointer;
 }
+
 .sorted::after {
     content: ' \25B2'; /* Arrow up */
     font-size: 0.7em;
 }
+
 .sorted.desc::after {
     content: ' \25BC'; /* Arrow down */
 }
@@ -91,7 +74,6 @@ label {
     font-weight: bold;
 }
 
-table tr:nth-child(n+26) {
-    background-color: gray;
+tr:nth-child(odd) {
+    background-color: #f9f9f9;
 }
-
